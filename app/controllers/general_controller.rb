@@ -32,12 +32,12 @@ class GeneralController < ApplicationController
                 if body_short_names.empty?
                     # This is too slow
                     @popular_bodies = PublicBody.find(:all, 
-				        :select => "public_bodies.*, (select count(*) from info_requests where info_requests.public_body_id = public_bodies.id) as c", 
-				        :order => "c desc", 
-				        :limit => 32,
-				        :conditions => conditions,
-				        :joins => :translations
-				    )
+                        :select => "public_bodies.*, (select count(*) from info_requests where info_requests.public_body_id = public_bodies.id) as c", 
+                        :order => "c desc", 
+                        :limit => 32,
+                        :conditions => conditions,
+                        :joins => :translations
+                    )
                 else
                     conditions[0] += " and public_bodies.url_name in (" + body_short_names + ")"
                     @popular_bodies = PublicBody.find(:all, 
@@ -71,14 +71,15 @@ class GeneralController < ApplicationController
         medium_cache
         @feed_autodetect = []
         @feed_url = "#{MySociety::Config.get('BLOG_FEED', '')}?lang=#{self.locale_from_params()}"
+        @blog_items = []
         if not @feed_url.empty?
-            content = open(@feed_url).read
-            @data = XmlSimple.xml_in(content)
-            @channel = @data['channel'][0]
-            @blog_items = @channel['item']
-            @feed_autodetect = [{:url => @feed_url, :title => "#{site_name} blog"}]
-        else
-            @blog_items = []
+            content = quietly_try_to_open(@feed_url)
+            if !content.empty?
+                @data = XmlSimple.xml_in(content)
+                @channel = @data['channel'][0]
+                @blog_items = @channel['item']
+                @feed_autodetect = [{:url => @feed_url, :title => "#{site_name} blog"}]
+            end
         end
         @twitter_user = MySociety::Config.get('TWITTER_USERNAME', '')
     end
@@ -99,7 +100,7 @@ class GeneralController < ApplicationController
             @variety_postfix = path.pop
         end
         @variety_postfix = "bodies" if @variety_postfix.nil? && !params[:bodies].nil?
-        @variety_postfix = "requests" if @variety_postfix.nil?
+        @variety_postfix = "all" if @variety_postfix.nil?
         if @variety_postfix != "users"
             @common_query = get_tags_from_params
         end

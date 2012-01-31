@@ -1,4 +1,21 @@
 require File.expand_path(File.dirname(__FILE__) + '/../spec_helper')
+require 'fakeweb'
+
+describe GeneralController, "when trying to show the blog" do
+    before (:each) do
+        FakeWeb.clean_registry
+    end
+    after (:each) do
+        FakeWeb.clean_registry
+    end
+
+    it "should fail silently if the blog is returning an error" do        
+        FakeWeb.register_uri(:get, %r|.*|, :body => "Error", :status => ["500", "Error"])
+        get :blog
+        response.status.should == "200 OK"
+        assigns[:blog_items].count.should == 0
+    end
+end
 
 describe GeneralController, "when searching" do
     integrate_views
@@ -68,29 +85,26 @@ describe GeneralController, "when searching" do
 
     it "should redirect from search query URL to pretty URL" do
         post :search_redirect, :query => "mouse" # query hidden in POST parameters
-        response.should redirect_to(:action => 'search', :combined => "mouse", :view => "requests") # URL /search/:query/all
+        response.should redirect_to(:action => 'search', :combined => "mouse", :view => "all") # URL /search/:query/all
     end
 
     describe "when using different locale settings" do 
         home_link_regex = /href=".*\/en"/
         it "should generate URLs with a locale prepended when there's more than one locale set" do
-            ActionController::Routing::Routes.add_filters('conditionallyprependlocale')
             get :frontpage
             response.should have_text(home_link_regex)
         end
 
         it "should generate URLs without a locale prepended when there's only one locale set" do
-            ActionController::Routing::Routes.add_filters('conditionallyprependlocale')
-            old_available_locales =  FastGettext.default_available_locales
-            available_locales = ['en']
-            FastGettext.default_available_locales = available_locales
-            I18n.available_locales = available_locales
+            old_fgt_available_locales =  FastGettext.default_available_locales
+            old_i18n_available_locales =  I18n.available_locales
+            FastGettext.default_available_locales = I18n.available_locales = ['en']
 
             get :frontpage
             response.should_not have_text(home_link_regex)
 
-            FastGettext.default_available_locales = old_available_locales
-            I18n.available_locales = old_available_locales
+            FastGettext.default_available_locales = old_fgt_available_locales
+            I18n.available_locales = old_i18n_available_locales
         end
     end
 
